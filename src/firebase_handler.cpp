@@ -1,4 +1,4 @@
-#include "FirebaseBareMetal.h"
+#include "firebase_handler.h"
 
 FirebaseBareMetal::FirebaseBareMetal(const char* host, const char* auth, const char* path) {
   _host = String(host);
