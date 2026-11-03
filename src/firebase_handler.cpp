@@ -6,20 +6,15 @@ FirebaseBareMetal::FirebaseBareMetal(const char* host, const char* auth, const c
   _path = String(path);
 }
 
-void FirebaseBareMetal::begin() {
-  // Setup dasar jika diperlukan
-}
-
 bool FirebaseBareMetal::sendData(const PowerData& data) {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("[FirebaseLib] Error: Wi-Fi terputus!");
+    Serial.println("[Firebase] Error: Wi-Fi terputus!");
     return false;
   }
 
   HTTPClient http;
-  
-  // URL endpoint REST API Firebase
   String url = _host + _path + "?auth=" + _auth;
+  
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
 
@@ -30,18 +25,20 @@ bool FirebaseBareMetal::sendData(const PowerData& data) {
   jsonPayload += "\"p_dc\":" + String(data.p_dc, 2) + ",";
   jsonPayload += "\"v_ac\":" + String(data.v_ac, 2) + ",";
   jsonPayload += "\"i_ac\":" + String(data.i_ac, 2) + ",";
-  jsonPayload += "\"p_ac\":" + String(data.p_ac, 2);
+  jsonPayload += "\"p_ac\":" + String(data.p_ac, 2) + ",";
+  jsonPayload += "\"f_ac\":" + String(data.f_ac, 2) + ",";
+  jsonPayload += "\"pf\":"   + String(data.pf, 2);
   jsonPayload += "}";
 
-  // Tembak REST API PATCH agar update realtime tanpa menghapus field lain
+  // Menggunakan HTTP PATCH agar update nilai realtime tanpa menimpa/menghapus node lain
   int httpResponseCode = http.PATCH(jsonPayload);
   http.end();
 
   if (httpResponseCode > 0) {
-    Serial.printf("[FirebaseLib] Success Update Data! Code: %d\n", httpResponseCode);
+    Serial.printf("[Firebase] Success Patch Data! Code: %d\n", httpResponseCode);
     return true;
   } else {
-    Serial.printf("[FirebaseLib] Error: %s\n", http.errorToString(httpResponseCode).c_str());
+    Serial.printf("[Firebase] Error: %s\n", http.errorToString(httpResponseCode).c_str());
     return false;
   }
 }
