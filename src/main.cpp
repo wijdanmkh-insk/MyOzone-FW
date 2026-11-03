@@ -1,48 +1,52 @@
 #include <Arduino.h>
+#include "config.h"
+#include "wifi_handler.h"
+#include "sensor_manager.h"
+#include "firebase_handler.h"
 
-// Menggunakan pin Analog A0 pada Arduino Mega
-const int acsPin = A0; 
+CustomWiFiManager wifiManager;
+SensorManager     sensorManager;
+FirebaseBareMetal firebase(FIREBASE_HOST, FIREBASE_AUTH, "/monitoring.json");
 
-// Konfigurasi Kalibrasi ACS712
-// Sesuaikan dengan modul: 5A (0.185), 20A (0.100), 30A (0.066) V/A
-const float sensitivity = 0.185; 
+QueueHandle_t sensorQueue;
 
-// Tegangan referensi saat arus 0A pada sistem 5V
-float vRef = 2.50; 
+// TASK 1: BACA SENSOR (Core 1)
+void TaskReadSensors(void * pvParameters) {
+  TickType_t xLastWakeTime = xTaskGetTickCount();
+  const TickType_t xFrequency = pdMS_TO_TICKS(1000);
+
+  for (;;) {
+    PowerData data = sensorManager.readAll();
+    xQueueOverwrite(sensorQueue, &data);
+    vTaskDelayUntil(&xLastWakeTime, xFrequency);
+  }
+}
+
+// TASK 2: KIRIM FIREBASE (Core 0)
+void TaskSendFirebase(void * pvParameters) {
+  PowerData receivedData;
+
+  for (;;) {
+    if (xQueueReceive(sensorQueue, &receivedData, portMAX_DELAY) == pdPASS) {
+      firebase.sendData(receivedData);
+    }
+  }
+}
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial) { delay(1); }
-  
-  Serial.println("Memulai pembacaan sensor ACS712 di Pin A0 (Arduino Mega)...");
+
+  wifiManager.init();
+  sensorManager.begin();
+
+  sensorQueue = xQueueCreate(1, sizeof(PowerData));
+
+  if (sensorQueue != NULL) {
+    xTaskCreatePinnedToCore(TaskReadSensors, "TaskReadSensors", 4096, NULL, 2, NULL, 1);
+    xTaskCreatePinnedToCore(TaskSendFirebase, "TaskSendFirebase", 8192, NULL, 1, NULL, 0);
+  }
 }
 
 void loop() {
-  int numSamples = 150;
-  float adcTotal = 0;
-  
-  // Mengambil banyak sampel untuk meredam noise
-  for (int i = 0; i < numSamples; i++) {
-    adcTotal += analogRead(acsPin);
-    delay(1); 
-  }
-  
-  float adcAverage = adcTotal / numSamples;
-  
-  // Konversi nilai ADC (0-1023) ke Tegangan (Volt)
-  // ADC Arduino Mega adalah 10-bit dengan referensi tegangan 5.0V
-  float voltage = (adcAverage / 1023.0) * 5.0;
-  
-  // Menghitung nilai arus (Ampere)
-  float current = (voltage - vRef) / sensitivity;
-  
-  Serial.print("ADC Avg: "); 
-  Serial.print(adcAverage, 1);
-  Serial.print(" | Tegangan Sensor: "); 
-  Serial.print(voltage, 3);
-  Serial.print(" V | Arus: "); 
-  Serial.print(current, 3);
-  Serial.println(" A");
-  
-  delay(500);
-} 
+  vTaskDelay(pdMS_TO_TICKS(1000));
+}
