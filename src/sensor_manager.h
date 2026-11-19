@@ -1,19 +1,11 @@
 #ifndef SENSOR_MANAGER_H
 #define SENSOR_MANAGER_H
 
+#include <Arduino.h>
 #include "config.h"
-#include "acs712_handler.h"
-#include "pzem_handler.h"
+#include "shared_data.h"
 
-class SensorManager {
-private:
-  ACS712Handler _acs;
-  PZEMHandler   _pzem;
-
-public:
-  SensorManager();
-  void begin();
-  PowerData readAll();
-};
+void initSensors();
+void pollSensorsAsync();
 
 #endif

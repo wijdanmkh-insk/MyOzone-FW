@@ -1,52 +1,44 @@
 #include <Arduino.h>
 #include "config.h"
-#include "wifi_handler.h"
+#include "shared_data.h"
+#include "network_manager.h"
 #include "sensor_manager.h"
-#include "firebase_handler.h"
+#include "firebase_manager.h"
 
-CustomWiFiManager wifiManager;
-SensorManager     sensorManager;
-FirebaseBareMetal firebase(FIREBASE_HOST, FIREBASE_AUTH, "/monitoring.json");
+// Inisialisasi Memori Global (Sesuai MISRA)
+ProveggiesData sensorData = {0, 0, 0, 0, 0, 0, 0, 0, false};
+char firebaseUID[64] = {0};
+char macAddress[20] = {0};
 
-QueueHandle_t sensorQueue;
-
-// TASK 1: BACA SENSOR (Core 1)
-void TaskReadSensors(void * pvParameters) {
-  TickType_t xLastWakeTime = xTaskGetTickCount();
-  const TickType_t xFrequency = pdMS_TO_TICKS(1000);
-
+void TaskCore1_Sensors(void *pvParameters) {
+  initSensors();
   for (;;) {
-    PowerData data = sensorManager.readAll();
-    xQueueOverwrite(sensorQueue, &data);
-    vTaskDelayUntil(&xLastWakeTime, xFrequency);
+    pollSensorsAsync();
   }
 }
 
-// TASK 2: KIRIM FIREBASE (Core 0)
-void TaskSendFirebase(void * pvParameters) {
-  PowerData receivedData;
+void TaskCore0_Network(void *pvParameters) {
+  cloudSystem.begin(FIREBASE_HOST, FIREBASE_AUTH);
 
   for (;;) {
-    if (xQueueReceive(sensorQueue, &receivedData, portMAX_DELAY) == pdPASS) {
-      firebase.sendData(receivedData);
-    }
+    cloudSystem.handleTasks();
+    vTaskDelay(10 / portTICK_PERIOD_MS); // Wajib ada agar IDLE0 tidak kena Watchdog Reset
   }
 }
 
 void setup() {
   Serial.begin(115200);
+  pinMode(PIN_RELAY_OZON, OUTPUT);
+  digitalWrite(PIN_RELAY_OZON, LOW);
 
-  wifiManager.init();
-  sensorManager.begin();
+  // 1. Inisialisasi Jaringan / Mode Offline (Jalankan sekali sebelum task)
+  initCaptivePortalAndNVS();
 
-  sensorQueue = xQueueCreate(1, sizeof(PowerData));
-
-  if (sensorQueue != NULL) {
-    xTaskCreatePinnedToCore(TaskReadSensors, "TaskReadSensors", 4096, NULL, 2, NULL, 1);
-    xTaskCreatePinnedToCore(TaskSendFirebase, "TaskSendFirebase", 8192, NULL, 1, NULL, 0);
-  }
+  // 2. Operasi Pembelahan Otak (Dual-Core SMP)
+  xTaskCreatePinnedToCore(TaskCore1_Sensors, "Sensors", 4096, NULL, 2, NULL, 1);
+  xTaskCreatePinnedToCore(TaskCore0_Network, "Cloud", 8192, NULL, 1, NULL, 0);
 }
 
 void loop() {
-  vTaskDelay(pdMS_TO_TICKS(1000));
+  vTaskDelay(portMAX_DELAY); // RTOS mengambil alih sepenuhnya
 }
