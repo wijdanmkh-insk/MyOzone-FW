@@ -7,8 +7,8 @@
 // 1. TOGGLE JARINGAN & CLOUD (COMPILE-TIME)
 // ==========================================
 // Beri komentar (//) untuk mematikan modul secara fisik dari memori
-//#define USE_WIFI        // Aktifkan Modul WiFi & Captive Portal
-//#define USE_FIREBASE    // Aktifkan Uplink/Downlink Firebase REST API
+#define USE_WIFI        // Aktifkan Modul WiFi & Captive Portal
+#define USE_FIREBASE    // Aktifkan Uplink/Downlink Firebase REST API
 
 // ==========================================
 // 2. TOGGLE SIMULATOR (AKTIFKAN SALAH SATU SAJA)
@@ -36,8 +36,8 @@
 #define PIN_RELAY_OZON  27
 #define PIN_PRESSURE_OUT  32  // Pin OUT dari modul HX710B (Input)
 #define PIN_PRESSURE_SCK  33  // Pin SCK ke modul HX710B (Output - bebas pilih GPIO output yang kosong)
-#define PIN_DS18B20     36
-#define PIN_DHT         39
+#define PIN_DS18B20     13
+#define PIN_DHT         14
 #define PZEM_RX_PIN     16
 #define PZEM_TX_PIN     17
 #define DHTTYPE         DHT11 // atau DHT22
