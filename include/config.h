@@ -45,7 +45,7 @@
 // ==========================================
 // 5. KREDENSIAL FIREBASE
 // ==========================================
-#define FIREBASE_HOST   "https://pengmas-tel-u-26-default-rtdb.asia-southeast1.firebasedatabase.app"
+#define FIREBASE_HOST   "pengmas-tel-u-26-default-rtdb.asia-southeast1.firebasedatabase.app"
 #define FIREBASE_AUTH   "AIzaSyCA8IlBAuMTx7WJU3liiStw0xJxBTRheCs"
 
 #endif

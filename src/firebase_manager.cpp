@@ -119,6 +119,7 @@ void FirebaseBareMetal::syncOwnership() {
   http.addHeader("Content-Type", "application/json");
   int userCode = http.PATCH((uint8_t*)userPayload, strlen(userPayload));
   http.end();
+  Serial.printf("[Firebase] Pairing: device=%d, daftar_alat=%d\n", devCode, userCode);
 
   if (devCode == HTTP_CODE_OK && userCode == HTTP_CODE_OK) {
     _isBound = true;
