@@ -3,8 +3,6 @@
 #include "shared_data.h"
 
 #ifndef USE_QEMU
-  #include "esp_adc_cal.h"
-
   #ifdef USE_PZEM
     #include <PZEM004Tv30.h>
     PZEM004Tv30 pzem(Serial2, PZEM_RX_PIN, PZEM_TX_PIN);
@@ -28,7 +26,56 @@
     DHT dht(PIN_DHT, DHTTYPE);
   #endif
 
-  static esp_adc_cal_characteristics_t adc_chars;
+  #ifdef USE_PRESSURE
+    // Fallback pin jika belum didefinisikan di config.h
+    #ifndef PIN_PRESSURE_OUT
+      #define PIN_PRESSURE_OUT PIN_PRESSURE // Default GPIO 34
+    #endif
+    #ifndef PIN_PRESSURE_SCK
+      #define PIN_PRESSURE_SCK 25           // Default GPIO 25
+    #endif
+
+    static portMUX_TYPE hx710Mux = portMUX_INITIALIZER_UNLOCKED;
+
+    static long readHX710B() {
+      unsigned long timeout = millis();
+      while (digitalRead(PIN_PRESSURE_OUT) == HIGH) {
+        if (millis() - timeout > 100) {
+          return 0; // Timeout jika sensor belum siap / kabel terlepas
+        }
+        vTaskDelay(1 / portTICK_PERIOD_MS);
+      }
+
+      long count = 0;
+
+      // Kunci interrupt sesaat (~50us) agar pulsa SCK HIGH tidak melebihi 60us (mode sleep HX710B)
+      portENTER_CRITICAL(&hx710Mux);
+      for (uint8_t i = 0; i < 24; i++) {
+        digitalWrite(PIN_PRESSURE_SCK, HIGH);
+        delayMicroseconds(1);
+        count = count << 1;
+        digitalWrite(PIN_PRESSURE_SCK, LOW);
+        delayMicroseconds(1);
+        if (digitalRead(PIN_PRESSURE_OUT) == HIGH) {
+          count++;
+        }
+      }
+
+      // Pulsa clock ke-25 untuk mengembalikan pin OUT ke HIGH (Next conversion 10Hz)
+      digitalWrite(PIN_PRESSURE_SCK, HIGH);
+      delayMicroseconds(1);
+      digitalWrite(PIN_PRESSURE_SCK, LOW);
+      delayMicroseconds(1);
+      portEXIT_CRITICAL(&hx710Mux);
+
+      // Konversi 24-bit two's complement ke signed 32-bit
+      if (count & 0x800000) {
+        count |= 0xFF000000;
+      }
+
+      return count;
+    }
+  #endif
 #endif
 
 void initSensors() {
@@ -53,8 +100,9 @@ void initSensors() {
   #endif
 
   #ifdef USE_PRESSURE
-    esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 1100, &adc_chars);
-    pinMode(PIN_PRESSURE, INPUT);
+    pinMode(PIN_PRESSURE_OUT, INPUT);
+    pinMode(PIN_PRESSURE_SCK, OUTPUT);
+    digitalWrite(PIN_PRESSURE_SCK, LOW);
   #endif
 #endif
 }
@@ -100,9 +148,11 @@ void pollSensorsAsync() {
   #endif
 
   #ifdef USE_PRESSURE
-    uint32_t raw_adc = analogRead(PIN_PRESSURE);
-    uint32_t voltage_mv = esp_adc_cal_raw_to_voltage(raw_adc, &adc_chars);
-    sensorData.ozon_pressure = voltage_mv / 1000.0f;
+    long raw_hx = readHX710B();
+    if (raw_hx != 0) {
+      // TODO: Sesuaikan offset nol (tare) & faktor skala setelah uji tekanan fisik
+      sensorData.ozon_pressure = (float)raw_hx;
+    }
   #endif
 
   vTaskDelay(750 / portTICK_PERIOD_MS);

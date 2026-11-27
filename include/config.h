@@ -7,7 +7,7 @@
 // 1. TOGGLE JARINGAN & CLOUD (COMPILE-TIME)
 // ==========================================
 // Beri komentar (//) untuk mematikan modul secara fisik dari memori
-#define USE_WIFI        // Aktifkan Modul WiFi & Captive Portal
+//#define USE_WIFI        // Aktifkan Modul WiFi & Captive Portal
 //#define USE_FIREBASE    // Aktifkan Uplink/Downlink Firebase REST API
 
 // ==========================================
@@ -19,11 +19,11 @@
 // ==========================================
 // 3. TOGGLE SENSOR HARDWARE (COMPILE-TIME)
 // ==========================================
-//#define USE_PZEM        // Sensor AC (Modbus UART2)
-//#define USE_INA226      // Sensor Baterai DC (I2C)
-//#define USE_DS18B20     // Sensor Suhu Ozon (1-Wire)
-//#define USE_PRESSURE    // Sensor Tekanan Analog (ADC1)
-//#define USE_DHT         // Sensor Suhu & Kelembapan Ruangan
+#define USE_PZEM        // Sensor AC (Modbus UART2)
+#define USE_INA226      // Sensor Baterai DC (I2C)
+#define USE_DS18B20     // Sensor Suhu Ozon (1-Wire)
+#define USE_PRESSURE    // Sensor Tekanan Analog (ADC1)
+#define USE_DHT         // Sensor Suhu & Kelembapan Ruangan
 
 // Pengaman MISRA Preprocessor: Cegah Firebase aktif tanpa jalur jaringan
 #if defined(USE_FIREBASE) && !defined(USE_WIFI) && !defined(USE_QEMU)
@@ -33,10 +33,11 @@
 // ==========================================
 // 4. PIN MAPPING
 // ==========================================
-#define PIN_RELAY_OZON  23
-#define PIN_PRESSURE    34  // ADC1
-#define PIN_DS18B20     4
-#define PIN_DHT         5
+#define PIN_RELAY_OZON  27
+#define PIN_PRESSURE_OUT  32  // Pin OUT dari modul HX710B (Input)
+#define PIN_PRESSURE_SCK  33  // Pin SCK ke modul HX710B (Output - bebas pilih GPIO output yang kosong)
+#define PIN_DS18B20     36
+#define PIN_DHT         39
 #define PZEM_RX_PIN     16
 #define PZEM_TX_PIN     17
 #define DHTTYPE         DHT11 // atau DHT22
